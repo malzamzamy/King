@@ -15,7 +15,7 @@ const MY_INFO = {
 
 const service = new WOLF();
 
-// دالة لتنظيف النص من الرموز غير المرئية التي تسبب أخطاء
+// دالة لتنظيف النص من الرموز غير المرئية
 const cleanText = (text) => {
     return text.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '');
 };
@@ -36,10 +36,7 @@ service.on('groupMessage', async (message) => {
         // التحقق من أن الرسالة فخ + مطابقة العضوية
         if (content.includes("اختبار تحقق سريع") && content.includes(MY_INFO.myId)) {
             
-            /* شرح النمط الجديد (Regex):
-               [^\s\w\u0600-\u06FF] يعني: "أي شيء ليس مسافة، وليس حرفاً، وليس حرفاً عربياً"
-               هذا يضمن تجاهل حرف "و" والتركيز على الرموز الهندسية فقط.
-            */
+            // 1. استخراج الرموز من الرسالة كاملة
             const symbolMatch = content.match(/العلامتين\s*([^\s\w\u0600-\u06FF])\s*و?\s*([^\s\w\u0600-\u06FF])/u);
 
             if (symbolMatch) {
@@ -47,23 +44,24 @@ service.on('groupMessage', async (message) => {
                 const sym2 = symbolMatch[2];
                 console.log(`✅ تم استخراج الرموز بنجاح: [${sym1}] و [${sym2}]`);
 
-                // التركيز فقط على السطر بعد النقطتين ":"
+                // 2. التعديل الجوهري: تقسيم النص عند النقطتين وأخذ الجزء الذي يليه فقط
                 const parts = content.split(':');
-                const targetLine = parts.length > 1 ? parts.slice(1).join(':') : content;
+                // نأخذ كل ما بعد أول ":" لضمان عدم ضياع أي جزء من الإجابة
+                const targetArea = parts.length > 1 ? parts.slice(1).join(':') : content;
 
-                // البحث عن الإجابة المحصورة بين العلامتين
+                // 3. البحث عن الإجابة داخل (targetArea) فقط وليس داخل كامل الرسالة
                 const pattern = new RegExp(`${escapeRegExp(sym1)}(.*?)${escapeRegExp(sym2)}`, 'u');
-                const result = targetLine.match(pattern);
+                const result = targetArea.match(pattern);
 
                 if (result && result[1]) {
                     const answer = result[1].trim();
-                    console.log(`🚀 الإجابة النهائية: ${answer}`);
+                    console.log(`🚀 الإجابة النهائية بعد النقطتين: ${answer}`);
                     
                     setTimeout(async () => {
                         await service.messaging.sendGroupMessage(message.targetGroupId, `#${answer}`);
                     }, 3000);
                 } else {
-                    console.log("❌ تعذر العثور على نص بين الرموز في الجزء المخصص.");
+                    console.log("❌ تعذر العثور على نص بين الرموز في الجزء الذي يأتي بعد النقطتين.");
                 }
             } else {
                 console.log("❌ لم يتم استخراج العلامات (الرموز). تأكد من صيغة الرسالة.");
@@ -82,7 +80,6 @@ service.on('ready', async () => {
         await service.group.joinById(settings.taskGroupId);
         await service.group.joinById(settings.depositGroupId);
 
-        // المهام (كل دقيقة)
         setInterval(async () => {
             await service.messaging.sendGroupMessage(settings.taskGroupId, "!مد مهام");
             setTimeout(async () => {
@@ -90,7 +87,6 @@ service.on('ready', async () => {
             }, 2000);
         }, 60000); 
 
-        // الصناديق (كل 3 دقائق)
         setInterval(async () => {
             await service.messaging.sendGroupMessage(settings.taskGroupId, "!مد صندوق فتح");
         }, 180000); 
