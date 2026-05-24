@@ -6,8 +6,8 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL || 'your_email@example.com',
     secret: process.env.U_PASS || 'your_password',
-    taskGroupId: 224,
-    depositGroupId: 224,
+    taskGroupId: 81889058,
+    depositGroupId: 81889058,
     // التوقيتات بالملي ثانية
     tasksInterval: 63 * 1000, // كل 63 ثانية
     boxInterval: 3 * 60 * 1000 // كل 3 دقائق
