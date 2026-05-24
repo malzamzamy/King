@@ -1,12 +1,8 @@
 {
-  "name": "wolf-bot",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
   "dependencies": {
     "wolf.js": "latest",
     "axios": "latest",
     "tesseract.js": "latest",
-    "jimp": "latest"
+    "jimp": "0.22.10"
   }
 }
