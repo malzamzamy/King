@@ -2,9 +2,12 @@ import 'dotenv/config';
 import { createRequire } from 'module';
 import wolfjs from 'wolf.js';
 
-// استخدام createRequire لحل مشكلة التوافق
 const require = createRequire(import.meta.url);
-const Jimp = require('jimp');
+
+// استيراد المكتبات مع معالجة ذكية للهيكل (Fallback)
+const JimpModule = require('jimp');
+const Jimp = JimpModule.Jimp || JimpModule; // حل مشكلة Jimp.read
+
 const pixelmatch = require('pixelmatch');
 const { PNG } = require('pngjs');
 
@@ -12,7 +15,7 @@ const { WOLF } = wolfjs;
 const client = new WOLF();
 
 // الإعدادات
-const TARGET_USER_ID = 51660277; // تأكد أنها رقم (بدون علامات تنصيص)
+const TARGET_USER_ID = 51660277;
 const CHANNEL_ID = 81889058;
 
 client.on('ready', async () => {
@@ -24,7 +27,7 @@ client.on('groupMessage', async (message) => {
     // التحقق من هوية المرسل والقناة
     if (message.sourceSubscriberId == TARGET_USER_ID && message.targetGroupId == CHANNEL_ID) {
         
-        // التحقق: هل النوع هو رابط صورة، أو هل البودي يحتوي على رابط ينتهي بـ .jpeg أو .jpg أو .png؟
+        // التحقق: هل النوع هو رابط صورة
         const isImageLink = message.type === 'text/image_link' || (message.body && message.body.match(/\.(jpeg|jpg|png)$/i));
 
         if (isImageLink) {
@@ -32,18 +35,17 @@ client.on('groupMessage', async (message) => {
             console.log("📸 تم اكتشاف رابط صورة! جاري المعالجة...");
             
             try {
+                // نمرر رابط الصورة والملف المحلي
                 const similarity = await compareImages(imgUrl, 'reference.png');
                 console.log(`📊 نسبة التطابق: ${(similarity * 100).toFixed(2)}%`);
 
                 if (similarity >= 0.90) {
                     console.log("✅ النتيجة: مطابقة 90%+");
-                    // يمكنك هنا إضافة أمر لإرسال رسالة في القناة:
-                    // await client.messaging.sendGroupMessage(CHANNEL_ID, "تمت المطابقة بنجاح!");
                 } else {
                     console.log("❌ النتيجة: غير مطابقة");
                 }
             } catch (err) {
-                console.error("خطأ في معالجة الصورة:", err.message);
+                console.error("خطأ أثناء المعالجة (تأكد من وجود صورة reference.png):", err.message);
             }
         }
     }
@@ -51,6 +53,7 @@ client.on('groupMessage', async (message) => {
 
 // دالة مقارنة الصور
 async function compareImages(imageUrl, refPath) {
+    // قراءة الصور
     const img1 = await Jimp.read(imageUrl);
     const img2 = await Jimp.read(refPath);
 
@@ -62,6 +65,7 @@ async function compareImages(imageUrl, refPath) {
 
     const diff = new PNG({ width, height });
 
+    // إجراء المقارنة
     const numDiffPixels = pixelmatch(
         img1.bitmap.data,
         img2.bitmap.data,
