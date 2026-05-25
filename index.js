@@ -1,13 +1,11 @@
 import 'dotenv/config';
 import { createRequire } from 'module';
+import path from 'path'; // استيراد مكتبة المسارات
 import wolfjs from 'wolf.js';
 
 const require = createRequire(import.meta.url);
-
-// استيراد المكتبات مع معالجة ذكية للهيكل (Fallback)
 const JimpModule = require('jimp');
-const Jimp = JimpModule.Jimp || JimpModule; // حل مشكلة Jimp.read
-
+const Jimp = JimpModule.Jimp || JimpModule;
 const pixelmatch = require('pixelmatch');
 const { PNG } = require('pngjs');
 
@@ -24,10 +22,8 @@ client.on('ready', async () => {
 });
 
 client.on('groupMessage', async (message) => {
-    // التحقق من هوية المرسل والقناة
     if (message.sourceSubscriberId == TARGET_USER_ID && message.targetGroupId == CHANNEL_ID) {
         
-        // التحقق: هل النوع هو رابط صورة
         const isImageLink = message.type === 'text/image_link' || (message.body && message.body.match(/\.(jpeg|jpg|png)$/i));
 
         if (isImageLink) {
@@ -35,8 +31,10 @@ client.on('groupMessage', async (message) => {
             console.log("📸 تم اكتشاف رابط صورة! جاري المعالجة...");
             
             try {
-                // نمرر رابط الصورة والملف المحلي
-                const similarity = await compareImages(imgUrl, 'reference.png');
+                // نستخدم path.resolve للحصول على مسار الملف الحقيقي
+                const refPath = path.resolve('./reference.jpg'); 
+                const similarity = await compareImages(imgUrl, refPath);
+                
                 console.log(`📊 نسبة التطابق: ${(similarity * 100).toFixed(2)}%`);
 
                 if (similarity >= 0.90) {
@@ -45,19 +43,16 @@ client.on('groupMessage', async (message) => {
                     console.log("❌ النتيجة: غير مطابقة");
                 }
             } catch (err) {
-                console.error("خطأ أثناء المعالجة (تأكد من وجود صورة reference.png):", err.message);
+                console.error("خطأ أثناء المعالجة (تأكد من وجود صورة reference.png في المجلد):", err.message);
             }
         }
     }
 });
 
-// دالة مقارنة الصور
 async function compareImages(imageUrl, refPath) {
-    // قراءة الصور
     const img1 = await Jimp.read(imageUrl);
-    const img2 = await Jimp.read(refPath);
+    const img2 = await Jimp.read(refPath); // الآن سيقرأ المسار بشكل صحيح
 
-    // توحيد الأبعاد (300x150) للمقارنة
     const width = 300;
     const height = 150;
     img1.resize(width, height);
@@ -65,7 +60,6 @@ async function compareImages(imageUrl, refPath) {
 
     const diff = new PNG({ width, height });
 
-    // إجراء المقارنة
     const numDiffPixels = pixelmatch(
         img1.bitmap.data,
         img2.bitmap.data,
@@ -79,5 +73,4 @@ async function compareImages(imageUrl, refPath) {
     return 1 - (numDiffPixels / totalPixels);
 }
 
-// تسجيل الدخول
 client.login(process.env.U_MAIL, process.env.U_PASS);
