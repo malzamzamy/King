@@ -1,13 +1,14 @@
 import 'dotenv/config';
+import { createRequire } from 'module';
 import wolfjs from 'wolf.js';
-import JimpModule from 'jimp';
-import PixelmatchModule from 'pixelmatch';
-import { PNG } from 'pngjs';
+
+// استخدام createRequire لحل مشكلة التوافق مع المكتبات القديمة
+const require = createRequire(import.meta.url);
+const Jimp = require('jimp');
+const pixelmatch = require('pixelmatch');
+const { PNG } = require('pngjs');
 
 const { WOLF } = wolfjs;
-const Jimp = JimpModule.default || JimpModule;
-const pixelmatch = PixelmatchModule.default || PixelmatchModule;
-
 const client = new WOLF();
 
 // الإعدادات
@@ -15,40 +16,43 @@ const TARGET_USER_ID = "51660277";
 const CHANNEL_ID = 81889058;
 
 client.on('ready', async () => {
-    console.log("🚀 البوت متصل الآن!");
+    console.log("🚀 البوت متصل وجاهز للمراقبة!");
     await client.group.joinById(CHANNEL_ID);
     console.log(`✅ تم الانضمام للقناة: ${CHANNEL_ID}`);
 });
 
 client.on('groupMessage', async (message) => {
-    // التحقق: هل الرسالة من المستخدم المحدد وفي القناة المطلوبة؟
+    // التحقق من هوية المرسل والقناة
     if (message.sourceSubscriberId == TARGET_USER_ID && message.targetGroupId == CHANNEL_ID) {
         
         // التحقق من وجود صورة
         if (message.attachments && message.attachments.length > 0) {
             const imgUrl = message.attachments[0].link;
-            console.log("📸 تم استلام صورة.. جاري التحقق...");
+            console.log("📸 تم استلام صورة من المستخدم المستهدف.. جاري المعالجة");
             
             try {
-                const isMatch = await compareImages(imgUrl, 'reference.png');
-                if (isMatch) {
-                    console.log("✅ النتيجة: الصورة مطابقة (90%+)");
+                const similarity = await compareImages(imgUrl, 'reference.png');
+                console.log(`📊 نسبة التطابق: ${(similarity * 100).toFixed(2)}%`);
+
+                if (similarity >= 0.90) {
+                    console.log("✅ النتيجة: مطابقة (يتم إرسال التنبيه هنا)");
                 } else {
-                    console.log("❌ النتيجة: الصورة غير مطابقة");
+                    console.log("❌ النتيجة: غير مطابقة");
                 }
             } catch (err) {
-                console.error("خطأ أثناء المعالجة:", err.message);
+                console.error("خطأ في معالجة الصورة:", err);
             }
         }
     }
 });
 
+// دالة مقارنة الصور
 async function compareImages(imageUrl, refPath) {
     // قراءة الصور
     const img1 = await Jimp.read(imageUrl);
     const img2 = await Jimp.read(refPath);
 
-    // توحيد الأبعاد (هذا ضروري جداً لـ pixelmatch)
+    // توحيد الأبعاد (300x150) للمقارنة
     const width = 300;
     const height = 150;
     img1.resize(width, height);
@@ -56,23 +60,19 @@ async function compareImages(imageUrl, refPath) {
 
     const diff = new PNG({ width, height });
 
-    // المقارنة
+    // إجراء المقارنة
     const numDiffPixels = pixelmatch(
         img1.bitmap.data,
         img2.bitmap.data,
         diff.data,
         width,
         height,
-        { threshold: 0.1 } // نسبة التسامح (يمكنك زيادتها لـ 0.2 إذا فشل التطابق)
+        { threshold: 0.1 } 
     );
 
     const totalPixels = width * height;
-    const similarity = 1 - (numDiffPixels / totalPixels);
-    
-    console.log(`📊 نسبة التطابق: ${(similarity * 100).toFixed(2)}%`);
-    
-    return similarity >= 0.90;
+    return 1 - (numDiffPixels / totalPixels);
 }
 
-// تسجيل الدخول باستخدام المتغيرات البيئية
+// تسجيل الدخول
 client.login(process.env.U_MAIL, process.env.U_PASS);
